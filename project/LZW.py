@@ -187,28 +187,37 @@ class LZWCoding:
    # by using the LZW compression algorithm and returns the resulting list.
    # ---------------------------------------------------------------------------
    def encodeGrayScaledImage(self, image_data):
-        # Build initial dictionary for grayscale images (0-255 values)
-        dict_size = 256
-        dictionary = {i: i for i in range(dict_size)}
-        
-        w = []  # Sequence storage
-        result = []  # Encoded output list
-        
-        for k in image_data:
-            wk = tuple(w + [k])  # Convert sequence to a tuple to use as a dictionary key
-            if wk in dictionary:
-                w = list(wk)
-            else:
-                result.append(dictionary[tuple(w)])
-                dictionary[wk] = dict_size
-                dict_size += 1
-                w = [k]
-        
-        if w:
-            result.append(dictionary[tuple(w)])
-        
-        self.codelength = np.ceil(np.log2(len(dictionary))).astype(int)
-        return result
+      # Görüntü verisi boşsa, boş liste döndür
+      if not image_data:
+         return []
+      
+      # Başlangıç sözlüğünü oluştur (0-255 arasındaki değerler için)
+      dict_size = 256
+      dictionary = {}
+      for i in range(dict_size):
+         dictionary[str(i)] = i  # Anahtarları string olarak saklıyoruz
+      
+      w = str(image_data[0])  # İlk değeri alıp string'e çevir
+      result = []
+      
+      # İkinci değerden itibaren kodlama işlemini başlat
+      for i in range(1, len(image_data)):
+         k = str(image_data[i])
+         wk = w + "," + k
+         
+         if wk in dictionary:
+               w = wk
+         else:
+               result.append(dictionary[w])
+               dictionary[wk] = dict_size
+               dict_size += 1
+               w = k
+      
+      # Son karakter dizisini ekle
+      result.append(dictionary[w])
+      
+      self.codelength = np.ceil(np.log2(len(dictionary))).astype(int)
+      return result
 
    # A method that converts the integer list returned by the compress method
    # into a binary string and returns the resulting string.
