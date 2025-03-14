@@ -79,6 +79,7 @@ class LZWCoding:
       # build the path of the input file
       input_file = self.filename + '.bmp'
       input_path = current_directory + '/' + input_file
+
       # build the path of the output file
       output_file = self.filename + '.bin'
       output_path = current_directory + '/' + output_file
@@ -87,7 +88,56 @@ class LZWCoding:
       image = Image.open(input_path).convert('L')
       image_data = np.array(image, dtype=np.uint8).flatten().tolist()
 
+      # encode the image data by using the LZW compression algorithm
+      encoded_image_as_integers = self.encodeGrayScaledImage(image_data)
+      # get the binary string that corresponds to the compressed image data
+      encoded_image = self.int_list_to_binary_string(encoded_image_as_integers)
+      # add the code length info to the beginning of the encoded image data
+      encoded_image = self.add_code_length_info(encoded_image)
+      # perform padding if needed
+      padded_encoded_image = self.pad_encoded_data(encoded_image)
+      # convert the resulting string into a byte array
+      byte_array = self.get_byte_array(padded_encoded_image)
 
+      # write the bytes in the byte array to the output file (compressed file)
+      out_file = open(output_path, 'wb')   # binary mode
+      out_file.write(bytes(byte_array))
+      out_file.close()
+
+      entropy_value = self.calculate_entropy(input_path)
+      print('Entropy of the image: ', entropy_value)
+
+      # notify the user that the compression process is finished
+      print(input_file + ' is compressed into ' + output_file + '.')
+      # compute and print the details of the compression process
+      uncompressed_size = len(image_data)
+      print('Uncompressed Size: ' + '{:,d}'.format(uncompressed_size) + ' bytes')
+      print('Code Length: ' + str(self.codelength))
+      compressed_size = len(byte_array)
+      print('Compressed Size: ' + '{:,d}'.format(compressed_size) + ' bytes')
+      compression_ratio = uncompressed_size / compressed_size
+      print('Compression Ratio: ' + '{:.2f}'.format(compression_ratio))
+
+      return output_path
+
+
+   def calculate_entropy(self, image_path):
+      # Load the grayscale image
+      img = Image.open(image_path).convert("L")  # Convert to grayscale if not already
+    
+      # Convert image to a NumPy array
+      img_array = np.array(img)
+    
+      # Compute histogram (256 bins for grayscale images)
+      hist, _ = np.histogram(img_array, bins=256, range=(0, 256), density=True)
+    
+      # Remove zero probabilities to avoid log(0) errors
+      hist = hist[hist > 0]
+    
+      # Compute entropy
+      entropy = -np.sum(hist * np.log2(hist))
+    
+      return entropy
    
    
 
@@ -129,6 +179,36 @@ class LZWCoding:
 
       # return the encoded values (a list of integer dictionary values)
       return result
+   
+
+
+
+   # A method that encodes the grayscale image data into a list of integer values
+   # by using the LZW compression algorithm and returns the resulting list.
+   # ---------------------------------------------------------------------------
+   def encodeGrayScaledImage(self, image_data):
+        # Build initial dictionary for grayscale images (0-255 values)
+        dict_size = 256
+        dictionary = {i: i for i in range(dict_size)}
+        
+        w = []  # Sequence storage
+        result = []  # Encoded output list
+        
+        for k in image_data:
+            wk = tuple(w + [k])  # Convert sequence to a tuple to use as a dictionary key
+            if wk in dictionary:
+                w = list(wk)
+            else:
+                result.append(dictionary[tuple(w)])
+                dictionary[wk] = dict_size
+                dict_size += 1
+                w = [k]
+        
+        if w:
+            result.append(dictionary[tuple(w)])
+        
+        self.codelength = np.ceil(np.log2(len(dictionary))).astype(int)
+        return result
 
    # A method that converts the integer list returned by the compress method
    # into a binary string and returns the resulting string.
@@ -243,6 +323,48 @@ class LZWCoding:
       # return the path of the output file
       return output_path
 
+
+   def decompress_image_file(self):
+      # get the current directory where this program is placed
+      current_directory = os.path.dirname(os.path.realpath(__file__))
+      # build the path of the input file
+      input_file = self.filename + '.bin'
+      input_path = current_directory + '/' + input_file
+      # build the path of the output file
+      output_file = self.filename + '_decompressed.bmp'
+      output_path = current_directory + '/' + output_file
+
+      # read the contents of the input file
+      in_file = open(input_path, 'rb')   # binary mode
+      bytes = in_file.read()
+      in_file.close()
+
+      # create a binary string from the bytes read from the file
+      from io import StringIO   # using StringIO for efficiency
+      bit_string = StringIO()
+      for byte in bytes:
+         bits = bin(byte)[2:].rjust(8, '0')
+         bit_string.write(bits)
+      bit_string = bit_string.getvalue()
+
+      # remove padding
+      bit_string = self.remove_padding(bit_string)
+      # remove the code length info and set the instance variable codelength
+      bit_string = self.extract_code_length_info(bit_string)
+      # convert the compressed binary string to a list of integer values
+      encoded_image = self.binary_string_to_int_list(bit_string)
+      # decode the encoded image by using the LZW decompression algorithm
+      decompressed_image = self.decodeImage(encoded_image)
+
+      # Write the decompressed image data to a new image file
+      img = Image.fromarray(np.array(decompressed_image, dtype=np.uint8).reshape(256, 256))
+      img.save(output_path)
+
+      # notify the user that the decompression process is finished
+      print(input_file + ' is decompressed into ' + output_file + '.')
+
+      return output_path
+
    # A method to remove the padding info and the added zeros from the compressed
    # binary string and return the resulting string.
    def remove_padding(self, padded_encoded_data):
@@ -321,3 +443,25 @@ class LZWCoding:
       
       # return the resulting output (the decompressed string/text)
       return result.getvalue()
+   
+   def decodeImage(self, encoded_values):
+        # Build initial dictionary for grayscale images (0-255 values)
+        dict_size = 256
+        dictionary = {i: i for i in range(dict_size)
+                      }
+        w = []
+        result = []
+
+        for k in encoded_values:
+            if k in dictionary:
+                entry = dictionary[k]
+            elif k == dict_size:
+                entry = w + [w[0]]
+            else:
+                raise ValueError('Bad compressed k: %s' % k)
+            result.extend(entry)
+            if w:
+                dictionary[dict_size] = w + [entry[0]]
+                dict_size += 1
+            w = entry
+        return result
