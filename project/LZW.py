@@ -366,7 +366,7 @@ class LZWCoding:
       decompressed_image = self.decodeImage(encoded_image)
 
       # Write the decompressed image data to a new image file
-      img = Image.fromarray(np.array(decompressed_image, dtype=np.uint8).reshape(256, 256))
+      img = Image.fromarray(np.array(decompressed_image, dtype=np.uint8).reshape(512, 768))
       img.save(output_path)
 
       # notify the user that the decompression process is finished
@@ -454,23 +454,41 @@ class LZWCoding:
       return result.getvalue()
    
    def decodeImage(self, encoded_values):
-        # Build initial dictionary for grayscale images (0-255 values)
-        dict_size = 256
-        dictionary = {i: i for i in range(dict_size)
-                      }
-        w = []
-        result = []
-
-        for k in encoded_values:
-            if k in dictionary:
-                entry = dictionary[k]
-            elif k == dict_size:
-                entry = w + [w[0]]
-            else:
-                raise ValueError('Bad compressed k: %s' % k)
-            result.extend(entry)
-            if w:
-                dictionary[dict_size] = w + [entry[0]]
-                dict_size += 1
-            w = entry
-        return result
+      # Build initial dictionary for grayscale images (0-255 values)
+      dict_size = 256
+      dictionary = {}
+      for i in range(dict_size):
+         dictionary[i] = [i]  # Piksel değerlerini liste olarak saklıyoruz
+      
+      # Boş veri kontrolü
+      if not encoded_values:
+         return []
+      
+      # İlk değeri al
+      w = dictionary[encoded_values[0]]
+      result = w.copy()  # Sonuç listesine ekle
+      
+      # Diğer kodlanmış değerleri çözümle
+      for i in range(1, len(encoded_values)):
+         k = encoded_values[i]
+         
+         # Sözlükte varsa değeri al
+         if k in dictionary:
+               entry = dictionary[k]
+         # Özel durum: k sözlük boyutuna eşitse
+         elif k == dict_size:
+               entry = w + [w[0]]  # İlk karakteri tekrarla
+         else:
+               raise ValueError('Bad compressed k: %s' % k)
+         
+         # Sonuç listesine ekle
+         result.extend(entry)
+         
+         # Sözlüğe yeni değer ekle
+         dictionary[dict_size] = w + [entry[0]]
+         dict_size += 1
+         
+         # w'yu güncelle
+         w = entry
+      
+      return result
