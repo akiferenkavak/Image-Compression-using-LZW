@@ -19,57 +19,75 @@ class LZWCoding:
 
 
 
+
+
+
    # A method that compresses the contents of an image file to a binary output
    # file and returns the path of the output file.
    # ---------------------------------------------------------------------------
    def compress_image_file(self):
-      # get the current directory where this program is placed
-      current_directory = os.path.dirname(os.path.realpath(__file__))
-      input_file = self.filename + '.bmp'
-      input_path = os.path.join(current_directory, input_file)
+    current_directory = os.path.dirname(os.path.realpath(__file__))
+    input_file = self.filename + '.bmp'
+    input_path = os.path.join(current_directory, input_file)
 
-      # build the path of the output file
-      output_file = self.filename + '.bin'
-      output_path = os.path.join(current_directory, output_file)
+    output_file = self.filename + '.bin'
+    output_path = os.path.join(current_directory, output_file)
 
-      # read the contents of the input file
-      image = Image.open(input_path).convert('L')
-      width, height = image.size  # Resmin genişlik ve yükseklik bilgilerini al
-      image_data = np.array(image, dtype=np.uint8).flatten().tolist()
+    # Görüntüyü oku ve fark görüntüsünü oluştur
+    image = Image.open(input_path).convert('L')
+    width, height = image.size
+    difference_image = self.compute_difference_image(image)
 
-      # encode the image data by using the LZW compression algorithm
-      encoded_image_as_integers = self.encodeGrayScaledImage(image_data)
-      encoded_image = self.int_list_to_binary_string(encoded_image_as_integers)
-      encoded_image = self.add_code_length_info(encoded_image)
-      padded_encoded_image = self.pad_encoded_data(encoded_image)
-      byte_array = self.get_byte_array(padded_encoded_image)
+    # Fark görüntüsünü 1D diziye çevir
+    diff_data = difference_image.flatten().tolist()
 
-      # Width ve Height bilgilerini binary formatta ekle (2 byte genişlik, 2 byte yükseklik)
-      width_bytes = width.to_bytes(2, byteorder='big')  
-      height_bytes = height.to_bytes(2, byteorder='big')
+    # LZW sıkıştırma uygula
+    encoded_data = self.encodeGrayScaledImage(diff_data)
+    encoded_string = self.int_list_to_binary_string(encoded_data)
+    encoded_string = self.add_code_length_info(encoded_string)
+    padded_encoded_string = self.pad_encoded_data(encoded_string)
+    byte_array = self.get_byte_array(padded_encoded_string)
 
-      # Sıkıştırılmış dosyaya width ve height’i ekleyerek yaz
-      with open(output_path, 'wb') as out_file:
-         out_file.write(width_bytes + height_bytes + bytes(byte_array))
+    # Width ve height bilgilerini dosyaya ekle
+    width_bytes = width.to_bytes(2, byteorder='big')
+    height_bytes = height.to_bytes(2, byteorder='big')
 
-      # Entropi hesaplama
-      entropy_value = self.calculate_entropy(input_path)
+    with open(output_path, 'wb') as out_file:
+        out_file.write(width_bytes + height_bytes + bytes(byte_array))
 
-      # Orijinal dosya boyutunu al (byte cinsinden)
-      original_file_size = os.path.getsize(input_path)
+    # Entropi hesapla
+    entropy_value = self.calculate_entropy(input_path)
+    original_size = os.path.getsize(input_path)
+    compressed_size = len(byte_array) + 4  # 4 byte = width + height
 
-      # Sıkıştırma sonrası istatistikleri yazdır
-      print(f"{input_file} is compressed into {output_file}.")
-      print(f"Original Image Size: {width}x{height} ({width * height:,} pixels)")
-      print(f"Original File Size: {original_file_size:,} bytes")
-      print(f"Entropy of the image: {entropy_value:.4f}")
-      print(f"Code Length: {self.codelength} bits")
-      compressed_size = len(byte_array) + 4  # 4 byte = width + height
-      print(f"Compressed File Size: {compressed_size:,} bytes")
-      compression_ratio = original_file_size / compressed_size
-      print(f"Compression Ratio: {compression_ratio:.2f}")
+    # Sonuçları yazdır
+    print(f"{input_file} is compressed into {output_file}.")
+    print(f"Original Size: {original_size:,} bytes")
+    print(f"Entropy: {entropy_value:.4f}")
+    print(f"Code Length: {self.codelength} bits")
+    print(f"Compressed Size: {compressed_size:,} bytes")
+    print(f"Compression Ratio: {original_size / compressed_size:.2f}")
 
-      return output_path
+    return output_path
+   
+
+
+   def compute_difference_image(self, image):
+        """ Compute the difference image using row-wise and column-wise differences """
+        img_array = np.array(image, dtype=np.int16)
+
+        # İlk sütunu sakla, geri kalanı satır farkına çevir
+        diff_img = np.zeros_like(img_array)
+        diff_img[:, 0] = img_array[:, 0]  # İlk sütun olduğu gibi kalsın
+
+        # Satır farkı hesapla
+        diff_img[:, 1:] = img_array[:, 1:] - img_array[:, :-1]
+
+        # İlk piksel pivot olarak alınır, kalan sütun farkı hesaplanır
+        diff_img[1:, 0] -= diff_img[:-1, 0]
+
+        return diff_img
+
 
 
    def calculate_entropy(self, image_path):
@@ -233,43 +251,54 @@ class LZWCoding:
    # decompression and writes the decompressed output to a text file.
    # ---------------------------------------------------------------------------
    def decompress_image_file(self):
-      current_directory = os.path.dirname(os.path.realpath(__file__))
-      input_file = self.filename + '.bin'
-      input_path = os.path.join(current_directory, input_file)
-      output_file = self.filename + '_decompressed.bmp'
-      output_path = os.path.join(current_directory, output_file)
+    current_directory = os.path.dirname(os.path.realpath(__file__))
+    input_file = self.filename + '.bin'
+    input_path = os.path.join(current_directory, input_file)
+    output_file = self.filename + '_decompressed.bmp'
+    output_path = os.path.join(current_directory, output_file)
 
-      with open(input_path, 'rb') as in_file:
-         bytes_data = in_file.read()
+    with open(input_path, 'rb') as in_file:
+        bytes_data = in_file.read()
 
-      # İlk 4 byte genişlik ve yükseklik bilgisi içeriyor
-      width = int.from_bytes(bytes_data[:2], byteorder='big')
-      height = int.from_bytes(bytes_data[2:4], byteorder='big')
+    # İlk 4 byte genişlik ve yükseklik bilgisi
+    width = int.from_bytes(bytes_data[:2], byteorder='big')
+    height = int.from_bytes(bytes_data[2:4], byteorder='big')
+    bytes_data = bytes_data[4:]
 
-      # Sıkıştırılmış veri (width ve height çıkarıldı)
-      bytes_data = bytes_data[4:]
+    # Sıkıştırılmış veriyi oku
+    bit_string = ''.join(bin(byte)[2:].rjust(8, '0') for byte in bytes_data)
+    bit_string = self.remove_padding(bit_string)
+    bit_string = self.extract_code_length_info(bit_string)
+    encoded_data = self.binary_string_to_int_list(bit_string)
+    diff_data = self.decodeImage(encoded_data)
 
-      # Binary string'e çevir
-      bit_string = ''.join(bin(byte)[2:].rjust(8, '0') for byte in bytes_data)
+    # Difference Image'i geri 2D forma çevir
+    diff_image = np.array(diff_data, dtype=np.int16).reshape(height, width)
 
-      bit_string = self.remove_padding(bit_string)
-      bit_string = self.extract_code_length_info(bit_string)
-      encoded_image = self.binary_string_to_int_list(bit_string)
-      decompressed_image = self.decodeImage(encoded_image)
+    # Orijinal görüntüyü farklardan geri oluştur
+    original_image = np.zeros_like(diff_image)
 
-      # Resmi doğru boyutlara göre geri oluştur
-      img = Image.fromarray(np.array(decompressed_image, dtype=np.uint8).reshape(height, width))
-      img.save(output_path)
+    # İlk sütunu aynen al
+    original_image[:, 0] = diff_image[:, 0]
 
-      # Decompressed dosyanın boyutunu al
-      decompressed_file_size = os.path.getsize(output_path)
+    # Satır farklarını geri al
+    for j in range(1, width):
+        original_image[:, j] = original_image[:, j - 1] + diff_image[:, j]
 
-      # Decompression sonrası bilgileri yazdır
-      print(f"{input_file} is decompressed into {output_file}.")
-      print(f"Restored Image Dimensions: {width}x{height}")
-      print(f"Decompressed File Size: {decompressed_file_size:,} bytes")
+    # İlk satırı aynen al, geri kalan sütunları tamamla
+    for i in range(1, height):
+        original_image[i, 0] = original_image[i - 1, 0] + diff_image[i, 0]
 
-      return output_path
+    # 0-255 arasına getir ve uint8 formatına çevir
+    restored_image = np.clip(original_image, 0, 255).astype(np.uint8)
+
+    # Görüntüyü kaydet
+    img = Image.fromarray(restored_image)
+    img.save(output_path)
+
+    print(f"{input_file} is decompressed into {output_file}.")
+    print(f"Restored Image Dimensions: {width}x{height}")
+    return output_path
    
    # A method that decodes a list of encoded integer values into a string (text) 
    # by using the LZW decompression algorithm and returns the resulting output.
