@@ -4,6 +4,8 @@ from tkinter import filedialog, messagebox, scrolledtext
 from PIL import Image, ImageTk
 from project.LZW import LZWCoding
 from project2.LZW import LZWCoding as LZWCoding2
+from project3.LZW import LZWCoding as LZWCoding3
+from project4.LZW import LZWCoding as LZWCoding4
 
 class CompressionApp:
     def __init__(self, root):
@@ -189,28 +191,39 @@ class CompressionApp:
 
                 try:
                     if mode == "gray":
-                        lzw = LZWCoding2(filename, 'image', file_path, output_path)
-                        compressed_path, compression_info = lzw.compress_image_file()
-                        print("çalıştı")
-                        print(f"Compressed Path: {compressed_path}, Compression Info: {compression_info}")
+                        if option == "gray_level":
+                            lzw = LZWCoding2(filename, 'image', file_path, output_path)
+                            compressed_path, compression_info = lzw.compress_image_file()
 
-                        decompressed_path = os.path.splitext(output_path)[0] + "_decompressed.png"
-                        lzw.filepath = output_path
-                        lzw.outputpath = decompressed_path
-                        decompressed_file_path = lzw.decompress_image_file()
+                            decompressed_path = os.path.splitext(output_path)[0] + "_decompressed.bmp"
+                            lzw.filepath = output_path
+                            lzw.outputpath = decompressed_path
+                            decompressed_file_path = lzw.decompress_image_file()
 
-                        self.show_image_comparison(file_path, decompressed_file_path, compression_info, mode)
+                            self.show_image_comparison(file_path, decompressed_file_path, compression_info, mode)
+                        elif option == "diff":
+                            lzw = LZWCoding3(filename, 'image', file_path, output_path)
+                            compressed_path, compression_info = lzw.compress_image_file()
+
+                            decompressed_path = os.path.splitext(output_path)[0] + "_decompressed.bmp"
+                            lzw.filepath = output_path
+                            lzw.outputpath = decompressed_path
+                            decompressed_file_path = lzw.decompress_image_file()
+
+                            self.show_image_comparison(file_path, decompressed_file_path, compression_info, mode)
 
                     elif mode == "colored":
-                        lzw = LZWCoding2(filename, 'colored_image', file_path, output_path)
-                        compressed_path, compression_info = lzw.compress_colored_image_file()
+                        if option == "gray_level":
+                            lzw = LZWCoding4(filename, 'colored_image', file_path, output_path)
+                            compressed_path, compression_info = lzw.compress_image_file()
 
-                        decompressed_path = os.path.splitext(output_path)[0] + "_decompressed.png"
-                        lzw.filepath = output_path
-                        lzw.outputpath = decompressed_path
-                        decompressed_file_path = lzw.decompress_colored_image_file()
+                            decompressed_path = os.path.splitext(output_path)[0] + "_decompressed.bmp"
+                            lzw.filepath = output_path
+                            lzw.outputpath = decompressed_path
+                            decompressed_file_path = lzw.decompress_image_file()
 
-                        self.show_image_comparison(file_path, decompressed_file_path, compression_info, mode)
+                            self.show_image_comparison(file_path, decompressed_file_path, compression_info, mode)
+                        
 
                 except Exception as e:
                     messagebox.showerror("Error", f"An error occurred: {str(e)}")

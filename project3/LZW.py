@@ -5,18 +5,19 @@ import numpy as np  # Numerical operations
 
 
 class LZWCoding:
-    def __init__(self, filename, data_type):
+    def __init__(self, filename, data_type, filepath, outputpath):
         self.filename = filename
         self.data_type = data_type
         self.codelength = None
+        self.filepath = filepath
+        self.outputpath = outputpath
 
     def compress_image_file(self):
-        current_directory = os.path.dirname(os.path.realpath(__file__))
-        input_file = self.filename + '.bmp'
-        input_path = os.path.join(current_directory, input_file)
-
-        output_file = self.filename + '.bin'
-        output_path = os.path.join(current_directory, output_file)
+        # Get paths
+        input_path = self.filepath
+        input_file = os.path.basename(input_path)
+        output_path = self.outputpath
+        output_file = os.path.basename(output_path)
 
         # Read image and compute difference image
         image = Image.open(input_path).convert('L')
@@ -49,11 +50,10 @@ class LZWCoding:
         compressed_size = len(byte_array) + 4  # 4 bytes for width, height
 
         #Calculate entropy of difference image
-        hist, _ = np.histogram(difference_image.flatten(), bins=256, range=(0, 256), density=True)
-        hist = hist[hist > 0]  # Sıfır olmayan olasılıkları filtrele
+        hist, _ = np.histogram(difference_image.flatten(), bins=511, range=(-255, 256), density=True)
+        hist = hist[hist > 0]  # Filter out zero probabilities
         entropy_value_difference_img = -np.sum(hist * np.log2(hist))
         
-
         # Print results
         print(f"{input_file} is compressed into {output_file}.")
         print(f"Original Size: {original_size:,} bytes")
@@ -63,14 +63,41 @@ class LZWCoding:
         print(f"Compression Ratio: {original_size / compressed_size:.2f}")
         print(f"Entropy of Difference Image: {entropy_value_difference_img:.4f}")
 
-        return output_path
+        info = [
+            f"{input_file} is compressed into {output_file}.",
+            f"Original Size: {original_size:,} bytes",
+            f"Entropy of original image: {entropy_value:.4f}",
+            f"Code Length: {self.codelength} bits",
+            f"Compressed Size: {compressed_size:,} bytes",
+            f"Compression Ratio: {original_size / compressed_size:.2f}",
+            f"Entropy of Difference Image: {entropy_value_difference_img:.4f}"
+        ]
+
+
+        return output_path, info
 
     def compute_difference_image(self, image):
+        # Convert image to numpy array
         img_array = np.array(image, dtype=np.int16)
+        height, width = img_array.shape
         diff_img = np.zeros_like(img_array)
-        diff_img[:, 0] = img_array[:, 0]  # Keep first column
-        diff_img[:, 1:] = img_array[:, 1:] - img_array[:, :-1]  # Row-wise difference
-        diff_img[1:, 0] -= diff_img[:-1, 0]  # Column-wise difference
+        
+        # First pixel stays the same
+        diff_img[0, 0] = img_array[0, 0]
+        
+        # First row: horizontal difference
+        for j in range(1, width):
+            diff_img[0, j] = img_array[0, j] - img_array[0, j-1]
+            
+        # First column: vertical difference
+        for i in range(1, height):
+            diff_img[i, 0] = img_array[i, 0] - img_array[i-1, 0]
+            
+        # Rest of the image: compute difference from left pixel
+        for i in range(1, height):
+            for j in range(1, width):
+                diff_img[i, j] = img_array[i, j] - img_array[i, j-1]
+                
         return diff_img
 
     def calculate_entropy(self, image_path):
@@ -85,14 +112,19 @@ class LZWCoding:
         if not image_data:
             return []
 
-        dict_size = 511  # Since values are between 0 and 510
+        # Initialize dictionary with single symbols (0-510)
+        dict_size = 511  # Values range from 0 to 510
         dictionary = {str(i): i for i in range(dict_size)}
+        
+        # Start with first symbol
         w = str(image_data[0])
         result = []
 
+        # Process the rest of the data
         for i in range(1, len(image_data)):
             k = str(image_data[i])
             wk = w + "," + k
+            
             if wk in dictionary:
                 w = wk
             else:
@@ -101,8 +133,12 @@ class LZWCoding:
                 dict_size += 1
                 w = k
 
+        # Add the last pattern
         result.append(dictionary[w])
-        self.codelength = np.ceil(np.log2(len(dictionary))).astype(int)
+        
+        # Calculate required bits for each code
+        self.codelength = math.ceil(math.log2(dict_size))
+        
         return result
 
     def int_list_to_binary_string(self, int_list):
@@ -123,45 +159,74 @@ class LZWCoding:
         return bytearray(int(padded_encoded_data[i:i+8], 2) for i in range(0, len(padded_encoded_data), 8))
 
     def decompress_image_file(self):
-        current_directory = os.path.dirname(os.path.realpath(__file__))
-        input_file = self.filename + '.bin'
-        input_path = os.path.join(current_directory, input_file)
-        output_file = self.filename + '_decompressed.bmp'
-        output_path = os.path.join(current_directory, output_file)
+        # Get paths
+        input_path = self.filepath
+        input_file = os.path.basename(input_path)
+        output_path = self.outputpath
+        output_file = os.path.basename(output_path)
 
         with open(input_path, 'rb') as in_file:
             bytes_data = in_file.read()
 
+        # Extract width and height
         width = int.from_bytes(bytes_data[:2], byteorder='big')
         height = int.from_bytes(bytes_data[2:4], byteorder='big')
         bytes_data = bytes_data[4:]
 
-        bit_string = ''.join(bin(byte)[2:].rjust(8, '0') for byte in bytes_data)
+        # Convert bytes to binary string
+        bit_string = ''.join(format(byte, '08b') for byte in bytes_data)
+        
+        # Remove padding and extract code length
         bit_string = self.remove_padding(bit_string)
         bit_string = self.extract_code_length_info(bit_string)
+        
+        # Convert binary string to integer codes
         encoded_data = self.binary_string_to_int_list(bit_string)
+        
+        # Decode the LZW compression
         diff_data = self.decodeImage(encoded_data)
-
+        
         # Restore original values from 0-510 range
         diff_data = [x - 255 for x in diff_data]
+        
+        # Reshape to 2D array
         diff_image = np.array(diff_data, dtype=np.int16).reshape(height, width)
-
-        original_image = np.zeros_like(diff_image)
-        original_image[:, 0] = diff_image[:, 0]
-
-        for j in range(1, width):
-            original_image[:, j] = original_image[:, j - 1] + diff_image[:, j]
-
-        for i in range(1, height):
-            original_image[i, 0] = original_image[i - 1, 0] + diff_image[i, 0]
-
+        
+        # Reconstruct the original image from differences
+        original_image = self.reconstruct_from_difference(diff_image)
+        
+        # Ensure pixel values are in valid range
         restored_image = np.clip(original_image, 0, 255).astype(np.uint8)
+        
+        # Save as BMP
         img = Image.fromarray(restored_image)
         img.save(output_path)
 
         print(f"{input_file} is decompressed into {output_file}.")
         print(f"Restored Image Dimensions: {width}x{height}")
         return output_path
+
+    def reconstruct_from_difference(self, diff_image):
+        height, width = diff_image.shape
+        original_image = np.zeros_like(diff_image)
+        
+        # First pixel stays the same
+        original_image[0, 0] = diff_image[0, 0]
+        
+        # Reconstruct first row
+        for j in range(1, width):
+            original_image[0, j] = original_image[0, j-1] + diff_image[0, j]
+            
+        # Reconstruct first column
+        for i in range(1, height):
+            original_image[i, 0] = original_image[i-1, 0] + diff_image[i, 0]
+            
+        # Reconstruct the rest of the image
+        for i in range(1, height):
+            for j in range(1, width):
+                original_image[i, j] = original_image[i, j-1] + diff_image[i, j]
+                
+        return original_image
 
     def remove_padding(self, padded_encoded_data):
         extra_bits = int(padded_encoded_data[:8], 2)
@@ -175,14 +240,35 @@ class LZWCoding:
         return [int(bitstring[i:i+self.codelength], 2) for i in range(0, len(bitstring), self.codelength)]
 
     def decodeImage(self, encoded_values):
-        dictionary = {i: [i] for i in range(511)}
-        w = dictionary[encoded_values.pop(0)]
+        if not encoded_values:
+            return []
+            
+        # Initialize the dictionary with single values (0-510)
+        dictionary = {}
+        for i in range(511):
+            dictionary[i] = [i]
+            
+        # Start with first code
+        w = dictionary[encoded_values[0]]
         result = w.copy()
-
-        for k in encoded_values:
-            entry = dictionary[k] if k in dictionary else w + [w[0]]
+        
+        # Process the rest of the codes
+        for i in range(1, len(encoded_values)):
+            k = encoded_values[i]
+            
+            if k in dictionary:
+                entry = dictionary[k]
+            elif k == len(dictionary):
+                entry = w + [w[0]]
+            else:
+                raise ValueError(f"Invalid code: {k}")
+                
             result.extend(entry)
-            dictionary[len(dictionary)] = w + [entry[0]]
-            w = entry
-
+            
+            # Add new pattern to dictionary
+            if len(dictionary) < 2**self.codelength:
+                dictionary[len(dictionary)] = w + [entry[0]]
+                
+            w = entry.copy()
+            
         return result
