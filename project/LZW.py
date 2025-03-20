@@ -9,13 +9,15 @@ import numpy as np  # the numpy library is used for numerical
 class LZWCoding:
    # A constructor with two input parameters
    # ---------------------------------------------------------------------------
-   def __init__(self, filename, data_type):
+   def __init__(self, filename, data_type, filepath, outputpath):
       # use the input parameters to set the instance variables
       self.filename = filename
       self.data_type = data_type   # e.g., 'text'
       # initialize the code length as None 
       # (the actual value is determined based on the compressed data)
       self.codelength = None
+      self.filepath = filepath
+      self.outputpath = outputpath
 
 
 
@@ -24,13 +26,19 @@ class LZWCoding:
    # ---------------------------------------------------------------------------
    def compress_text_file(self):
       # get the current directory where this program is placed
-      current_directory = os.path.dirname(os.path.realpath(__file__))
+      #current_directory = os.path.dirname(os.path.realpath(__file__))
       # build the path of the input file
-      input_file = self.filename + '.txt'
-      input_path = current_directory + '/' + input_file
+      #input_file = self.filename + '.txt'
+      #input_path = current_directory + '/' + input_file
+
+
+      #assume filepath given by gui
+      input_path = self.filepath
+      input_file = os.path.basename(input_path)
       # build the path of the output file
-      output_file = self.filename + '.bin'
-      output_path = current_directory + '/' + output_file
+      #output_file = self.filename + '.bin'
+      output_path = self.outputpath
+      output_file = os.path.basename(output_path)
 
       # read the contents of the input file
       in_file = open(input_path, 'r')
@@ -64,8 +72,16 @@ class LZWCoding:
       compression_ratio = uncompressed_size / compressed_size
       print('Compression Ratio: ' + '{:.2f}'.format(compression_ratio))
 
+      info = [
+            f"{input_file} is compressed into {output_file}.",
+            f"Uncompressed Size: {uncompressed_size:,d} bytes",
+            f"Code Length: {self.codelength}",
+            f"Compressed Size: {compressed_size:,d} bytes",
+            f"Compression Ratio: {compression_ratio:.2f}"
+        ]
+
       # return the path of the output file
-      return output_path
+      return output_path, info
    
 
 
@@ -290,14 +306,13 @@ class LZWCoding:
    # decompression and writes the decompressed output to a text file.
    # ---------------------------------------------------------------------------
    def decompress_text_file(self):
-      # get the current directory where this program is placed
-      current_directory = os.path.dirname(os.path.realpath(__file__))
-      # build the path of the input file
-      input_file = self.filename + '.bin'
-      input_path = current_directory + '/' + input_file
+      #assume filepath given by gui
+      input_path = self.filepath
+      input_file = os.path.basename(input_path)
       # build the path of the output file
-      output_file = self.filename + '_decompressed.txt'
-      output_path = current_directory + '/' + output_file
+      #output_file = self.filename + '.bin'
+      output_path = self.outputpath
+      output_file = os.path.basename(output_path)
 
       # read the contents of the input file
       in_file = open(input_path, 'rb')   # binary mode
@@ -334,14 +349,13 @@ class LZWCoding:
 
 
    def decompress_image_file(self):
-      # get the current directory where this program is placed
-      current_directory = os.path.dirname(os.path.realpath(__file__))
-      # build the path of the input file
-      input_file = self.filename + '.bin'
-      input_path = current_directory + '/' + input_file
+      #assume filepath given by gui
+      input_path = self.filepath
+      input_file = os.path.basename(input_path)
       # build the path of the output file
-      output_file = self.filename + '_decompressed.bmp'
-      output_path = current_directory + '/' + output_file
+      #output_file = self.filename + '.bin'
+      output_path = self.outputpath
+      output_file = os.path.basename(output_path)
 
       # read the contents of the input file
       in_file = open(input_path, 'rb')   # binary mode

@@ -9,14 +9,15 @@ import numpy as np  # the numpy library is used for numerical
 class LZWCoding:
    # A constructor with two input parameters
    # ---------------------------------------------------------------------------
-   def __init__(self, filename, data_type):
+   def __init__(self, filename, data_type, file_path, output_path):
       # use the input parameters to set the instance variables
       self.filename = filename
       self.data_type = data_type   # e.g., 'text'
       # initialize the code length as None 
       # (the actual value is determined based on the compressed data)
       self.codelength = None
-
+      self.file_path = file_path
+      self.output_path = output_path
 
 
    # A method that compresses the contents of an image file to a binary output
@@ -24,13 +25,13 @@ class LZWCoding:
    # ---------------------------------------------------------------------------
    def compress_image_file(self):
       # get the current directory where this program is placed
-      current_directory = os.path.dirname(os.path.realpath(__file__))
-      input_file = self.filename + '.bmp'
-      input_path = os.path.join(current_directory, input_file)
-
+      #assume filepath given by gui
+      input_path = self.filepath
+      input_file = os.path.basename(input_path)
       # build the path of the output file
-      output_file = self.filename + '.bin'
-      output_path = os.path.join(current_directory, output_file)
+      #output_file = self.filename + '.bin'
+      output_path = self.outputpath
+      output_file = os.path.basename(output_path)
 
       # read the contents of the input file
       image = Image.open(input_path).convert('L')
@@ -233,12 +234,14 @@ class LZWCoding:
    # decompression and writes the decompressed output to a text file.
    # ---------------------------------------------------------------------------
    def decompress_image_file(self):
-      current_directory = os.path.dirname(os.path.realpath(__file__))
-      input_file = self.filename + '.bin'
-      input_path = os.path.join(current_directory, input_file)
-      output_file = self.filename + '_decompressed.bmp'
-      output_path = os.path.join(current_directory, output_file)
-
+      #assume filepath given by gui
+      input_path = self.filepath
+      input_file = os.path.basename(input_path)
+      # build the path of the output file
+      #output_file = self.filename + '.bin'
+      output_path = self.outputpath
+      output_file = os.path.basename(output_path)
+      
       with open(input_path, 'rb') as in_file:
          bytes_data = in_file.read()
 
