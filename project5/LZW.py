@@ -5,14 +5,20 @@ from PIL import Image
 
 
 class LZWCoding:
-    def __init__(self, filename):
+    def __init__(self, filename, data_type, filepath, outputpath):
         self.filename = filename
         self.codelength = None
 
+        self.data_type = data_type
+        self.filepath = filepath
+        self.outputpath = outputpath
+
     def compress_image_file(self):
-        current_directory = os.path.dirname(os.path.realpath(__file__))
-        input_file = self.filename + '.bmp'
-        input_path = os.path.join(current_directory, input_file)
+         # Get paths
+        input_path = self.filepath
+        input_file = os.path.basename(input_path)
+        output_path = self.outputpath
+        output_file = os.path.basename(output_path)
 
         image = Image.open(input_path).convert('RGB')
         width, height = image.size
@@ -30,6 +36,20 @@ class LZWCoding:
 
         print(f"Compression completed for {input_file}")
 
+        original_size = os.path.getsize(input_path)
+        compressed_size = sum(os.path.getsize(output_path + suffix) for suffix in ['_R.bin', '_G.bin', '_B.bin'])
+        compression_ratio = original_size / compressed_size
+
+        print(f"Compression completed for {input_file}")
+        info = [f"Width: {width}, Height: {height}",
+                f"Original size: {original_size} bytes",
+                f"Compressed size: {compressed_size} bytes",
+                f"Compression ratio: {compression_ratio
+                }"
+                ]
+
+        return [output_file + '_R.bin', output_file + '_G.bin', output_file + '_B.bin'], info
+
     def compress_channel(self, channel_data, width, height, suffix):
         channel_data = channel_data.flatten().tolist()
         channel_data = [x + 255 for x in channel_data]  # -255 ile 255 arasını 0-510 arasına kaydır
@@ -40,7 +60,7 @@ class LZWCoding:
         padded_encoded_string = self.pad_encoded_data(encoded_string)
         byte_array = self.get_byte_array(padded_encoded_string)
 
-        output_path = f"{self.filename}{suffix}"
+        output_path = self.outputpath + suffix
         with open(output_path, 'wb') as out_file:
             out_file.write(width.to_bytes(2, byteorder='big'))
             out_file.write(height.to_bytes(2, byteorder='big'))
@@ -100,12 +120,14 @@ class LZWCoding:
         b_channel = self.decompress_channel('_B.bin')
 
         img = Image.merge("RGB", (r_channel, g_channel, b_channel))
-        output_path = self.filename + "_decompressed.bmp"
+        output_path = self.outputpath + "_decompressed.bmp"
         img.save(output_path)
         print(f"Decompressed image saved as {output_path}")
 
+        return output_path
+
     def decompress_channel(self, suffix):
-        input_path = self.filename + suffix
+        input_path = self.filepath + suffix
         with open(input_path, 'rb') as in_file:
             bytes_data = in_file.read()
 

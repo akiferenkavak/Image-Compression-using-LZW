@@ -6,6 +6,7 @@ from project.LZW import LZWCoding
 from project2.LZW import LZWCoding as LZWCoding2
 from project3.LZW import LZWCoding as LZWCoding3
 from project4.LZW import LZWCoding as LZWCoding4
+from project5.LZW import LZWCoding as LZWCoding5
 
 class CompressionApp:
     def __init__(self, root):
@@ -215,6 +216,16 @@ class CompressionApp:
                     elif mode == "colored":
                         if option == "gray_level":
                             lzw = LZWCoding4(filename, 'colored_image', file_path, output_path)
+                            compressed_path, compression_info = lzw.compress_image_file()
+
+                            decompressed_path = os.path.splitext(output_path)[0] + "_decompressed.bmp"
+                            lzw.filepath = output_path
+                            lzw.outputpath = decompressed_path
+                            decompressed_file_path = lzw.decompress_image_file()
+
+                            self.show_image_comparison(file_path, decompressed_file_path, compression_info, mode)
+                        elif option == "diff":
+                            lzw = LZWCoding5(filename, 'colored_image', file_path, output_path)
                             compressed_path, compression_info = lzw.compress_image_file()
 
                             decompressed_path = os.path.splitext(output_path)[0] + "_decompressed.bmp"
