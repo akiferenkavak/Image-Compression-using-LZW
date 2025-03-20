@@ -48,13 +48,20 @@ class LZWCoding:
         original_size = os.path.getsize(input_path)
         compressed_size = len(byte_array) + 4  # 4 bytes for width, height
 
+        #Calculate entropy of difference image
+        hist, _ = np.histogram(difference_image.flatten(), bins=256, range=(0, 256), density=True)
+        hist = hist[hist > 0]  # Sıfır olmayan olasılıkları filtrele
+        entropy_value_difference_img = -np.sum(hist * np.log2(hist))
+        
+
         # Print results
         print(f"{input_file} is compressed into {output_file}.")
         print(f"Original Size: {original_size:,} bytes")
-        print(f"Entropy: {entropy_value:.4f}")
+        print(f"Entropy of original image: {entropy_value:.4f}")
         print(f"Code Length: {self.codelength} bits")
         print(f"Compressed Size: {compressed_size:,} bytes")
         print(f"Compression Ratio: {original_size / compressed_size:.2f}")
+        print(f"Entropy of Difference Image: {entropy_value_difference_img:.4f}")
 
         return output_path
 
