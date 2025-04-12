@@ -1,3 +1,5 @@
+import os
+os.environ["PATH"] += os.pathsep + "C:/Program Files/Graphviz/bin/"
 import os  # the os module is used for file and directory operations
 import math  # the math module provides access to mathematical functions
 from PIL import Image  # the Image class is used for image operations
